@@ -1,0 +1,54 @@
+1. **workers** : Stocke les informations des travailleurs de l'industrie (réalisateurs et acteurs)
+   - `id` : Identifiant unique (UUID)
+   - `name` : Nom du travailleur
+
+2. **genres** : Catégorise les différents genres de films
+   - `id` : Identifiant unique (UUID)
+   - `name` : Nom du genre (unique)
+
+3. **awards** : Répertorie les différents prix
+   - `id` : Identifiant unique (UUID)
+   - `name` : Nom du prix
+   - `category` : Catégorie du prix
+
+4. **movies** : Contient les informations sur les films
+   - `id` : Identifiant unique (UUID)
+   - `title` : Titre du film
+   - `year` : Année de sortie
+   - `director_id` : Référence au réalisateur (lié à la table workers)
+   - `metadata` : Données supplémentaires au format JSONB
+
+5. **movies_genres** : Table de jonction entre films et genres (relation many-to-many)
+   - `movie_id` : Référence au film
+   - `genre_id` : Référence au genre
+
+6. **movie_actors** : Associe les acteurs à leurs films et rôles (relation many-to-many)
+   - `id` : Identifiant unique (UUID)
+   - `movie_id` : Référence au film
+   - `actor_id` : Référence à l'acteur (lié à la table workers)
+   - `role` : Nom du rôle joué
+
+7. **movie_awards** : Associe les prix aux films (relation many-to-many)
+   - `movie_id` : Référence au film
+   - `award_id` : Référence au prix
+   - `year` : Année de remise du prix
+
+8. **users** : Stocke les informations des utilisateurs de l'application
+   - `id` : Identifiant unique (UUID)
+   - `name` : Nom de l'utilisateur
+
+9. **favorite_genres** : Associe les genres préférés aux utilisateurs (relation many-to-many)
+   - `user_id` : Référence à l'utilisateur
+   - `genre_id` : Référence au genre
+
+10. **watch_history** : Enregistre l'historique de visionnage des utilisateurs (relation many-to-many)
+    - `id` : Identifiant unique (UUID)
+    - `user_id` : Référence à l'utilisateur
+    - `movie_id` : Référence au film
+    - `watched_on` : Date de visionnage
+
+11. **ratings** : Stocke les évaluations et critiques des utilisateurs
+    - `user_id` : Référence à l'utilisateur
+    - `movie_id` : Référence au film
+    - `rating` : Note attribuée (entre 0 et 5)
+    - `review` : Texte de la critique
