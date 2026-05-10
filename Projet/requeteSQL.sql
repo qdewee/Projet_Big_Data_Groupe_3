@@ -7,9 +7,9 @@
 
 
 
---#################################################################################
+--##########################################################################################################
 -- Création des tables
---#################################################################################
+--##########################################################################################################
 -- Les tables finales ont été créée avec l'interface pgadmin 
 -- puis, elles ont été clonées sans leurs contraintes afin de faire des tables tampons dont voici le code de clonage
 CREATE TABLE public.tampon_table_finale AS 
@@ -31,11 +31,78 @@ CREATE TABLE public.rejet_workers AS
 SELECT *
 FROM "Workers";
 
--- Les tables tampon et les tables de rejets sont supprimées à la fin du projet
+-- Les tables tampon et les tables de rejets ne sont plus utiles à la fin du projet (sauf pour la correction éventuellement)
 
---#################################################################################
+
+--##########################################################################################################
+-- Suppression des doublons dans les tables tampons
+--##########################################################################################################
+DELETE FROM "tampon_workers" t1
+USING "tampon_workers" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.worker_id = t2.worker_id;
+
+
+DELETE FROM "tampon_users" t1
+USING "tampon_users" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.user_id = t2.user_id;
+
+
+DELETE FROM "tampon_movies" t1
+USING "tampon_movies" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.movie_id = t2.movie_id;
+
+
+DELETE FROM "tampon_awards" t1
+USING "tampon_awards" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.award_id = t2.award_id;
+
+
+DELETE FROM "tampon_genre" t1
+USING "tampon_genre" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.genre_id = t2.genre_id;
+
+
+DELETE FROM "tampon_movie_actors" t1
+USING "tampon_movie_actors" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.id = t2.id;
+
+
+DELETE FROM "tampon_movie_awards" t1
+USING "tampon_movie_awards" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.movie_id = t2.movie_id
+  AND t1.award_id = t2.award_id;
+
+
+DELETE FROM "tampon_movie_genre" t1
+USING "tampon_movie_genre" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.movie_id = t2.movie_id
+  AND t1.genre_id = t2.genre_id;
+
+
+DELETE FROM "tampon_ratings" t1
+USING "tampon_ratings" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.user_id = t2.user_id
+  AND t1.movie_id = t2.movie_id;
+
+
+DELETE FROM "tampon_favorite_genres" t1
+USING "tampon_favorite_genres" t2
+WHERE t1.ctid < t2.ctid
+  AND t1.user_id = t2.user_id
+  AND t1.genre_id = t2.genre_id;
+
+--##########################################################################################################
 -- Migration des données des tables tampon vers les tables finales
---#################################################################################
+--##########################################################################################################
 
 -- Pour la table "Workers"
 INSERT INTO "Workers" (worker_id, nom)
@@ -43,7 +110,7 @@ Select worker_id, trim(nom)  --On retire les espaces inutiles sur les côté
 FROM "tampon_workers"
 WHERE nom is NOT NULL  --On préfère reconnaitre la personne
 	AND worker_id is NOT NULL --L'identifiant ne peut être null
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$'  --Regex permettant de vérifier que
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$';  --Regex permettant de vérifier que
     -- Le nom (nettoyé des espaces exérieurs) est composé de lettres
     -- Le prénom fait entre 2 et 100 caractères
     -- Le séparateur est soit un espace (on passe au nom), soit une apostrophe (noms américains) 
@@ -51,8 +118,6 @@ WHERE nom is NOT NULL  --On préfère reconnaitre la personne
     -- Le(s) mot(s) suivants sont en lettres
     -- Un séparateur est toujours l'un des 3 proposés lorsque l'on change de mot
     -- Une abréviation peut terminer le mot
-ON conflict(worker_id) DO NOTHING;  -- En cas de conflic entre les identifiants, on ne les prends pas en compte 
-                                    -- pour éviter les identifiants doublons
 
 
 -- Ceci est la même requête mais sans les commentaires
@@ -61,8 +126,7 @@ Select worker_id, trim(nom)
 FROM "tampon_workers"
 WHERE nom is NOT NULL
 	AND worker_id is NOT NULL
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$'
-ON conflict(worker_id) DO NOTHING;
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$';
 
 
 
@@ -73,8 +137,7 @@ Select user_id, trim(nom)
 FROM "tampon_users"
 WHERE nom is NOT NULL
 	AND user_id is NOT NULL
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$'
-ON conflict(user_id) DO NOTHING;
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$';
 
 
 -- Pour les films, nous avons décidé que seuls l'id et le titre devaient être non null car nous somme parti du principe
@@ -133,7 +196,7 @@ Select t.id,
 	t.actor_id,
 	t.rôle
 FROM "tampon_movie_actors" t
-WHERE id is NOT NULL
+WHERE t.id is NOT NULL
 	AND t.movie_id is NOT NULL
 	AND EXISTS (
 		Select 1
@@ -154,7 +217,7 @@ SELECT
     CASE 
         WHEN t.année IS NULL THEN NULL
         WHEN CAST(t.année AS TEXT) ~ '^[0-9]{4}$' THEN t.année
-        ELSE 0000
+        ELSE NULL
     END AS année
 FROM "tampon_movie_awards" t
 WHERE t.movie_id IS NOT NULL
@@ -186,6 +249,69 @@ WHERE t.movie_id IS NOT NULL
 	WHERE g.genre_id = t.genre_id);
 
 
+-- Nous avons décidé de ne garder que la première instance d'une note étant donné que nous n'avons pas de donnée temporelle
+-- et qu'il nous est donc impossible de déterminer qu'elle note est la plus récente pour la garder
+-- (ce qui aurait été mieux selon nous). C'est pourquoi les doublons ne sont pas repris dans la table des rejets.
+INSERT INTO "Ratings" (user_id, movie_id, rating, review)
+Select t.user_id, 
+	t.movie_id,
+	t.rating,
+	t.review
+FROM "tampon_ratings" t
+WHERE t.user_id is NOT NULL
+	AND EXISTS (
+		Select 1
+		FROM "Users" u
+		WHERE u.user_id = t.user_id)
+	AND t.movie_id is NOT NULL
+	AND EXISTS (
+		Select 1
+		FROM "Movies" m
+		WHERE m.movie_id = t.movie_id)
+	AND CAST(t.rating as TEXT) ~ '^[0-5]{1}$';
+
+
+INSERT INTO "Favorite_genres" (user_id, genre_id)
+Select t.user_id, 
+	t.genre_id
+FROM "tampon_favorite_genres" t
+WHERE t.user_id is NOT NULL
+	AND EXISTS (
+		Select 1
+		FROM "Users" u
+		WHERE u.user_id = t.user_id)
+	AND t.genre_id is NOT NULL
+	AND EXISTS (
+		Select 1
+		FROM "Genre" g
+		WHERE g.genre_id = t.genre_id);
+
+
+INSERT INTO "Watch_history" (history_id, user_id, movie_id, watched_on)
+SELECT 
+    t.history_id,
+    t.user_id,
+    t.movie_id,
+    CASE
+        WHEN t.watched_on IS NULL THEN NULL
+        WHEN t.watched_on BETWEEN DATE '1800-01-01' AND CURRENT_DATE
+        THEN t.watched_on
+        ELSE NULL
+    END AS watched_on
+FROM "tampon_watch_history" t
+WHERE t.history_id IS NOT NULL
+  AND t.user_id IS NOT NULL
+  AND EXISTS (
+        SELECT 1
+        FROM "Users" u
+        WHERE u.user_id = t.user_id)
+  AND t.movie_id IS NOT NULL
+  AND EXISTS (
+        SELECT 1
+        FROM "Movies" m
+        WHERE m.movie_id = t.movie_id);
+
+
 --##########################################################################################################
 -- Migration des données des tables tampon vers les tables rejets pour vérifier qu'on ne rejette pas trop
 --##########################################################################################################
@@ -195,8 +321,7 @@ Select worker_id, trim(nom)
 FROM "tampon_workers"
 WHERE NOT(nom is NULL
 	AND worker_id is NULL
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$')
-ON conflict(worker_id) DO NOTHING;
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$');
 
 
 
@@ -205,8 +330,7 @@ Select user_id, trim(nom)
 FROM "tampon_users"
 WHERE NOT(nom is NULL
 	AND user_id is NULL
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$')
-ON conflict(user_id) DO NOTHING;
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$');
 
 
 INSERT INTO "rejet_movies" (movie_id, titre, année, director_id, metadata)
@@ -273,7 +397,7 @@ SELECT
     CASE 
         WHEN t.année IS NULL THEN NULL
         WHEN CAST(t.année AS TEXT) ~ '^[0-9]{4}$' THEN t.année
-        ELSE 0000
+        ELSE NULL
     END AS année
 FROM "tampon_movie_awards" t
 WHERE NOT (t.movie_id IS NOT NULL
@@ -303,3 +427,63 @@ WHERE NOT(t.movie_id IS NOT NULL
 	SELECT 1
 	FROM "Genre" g
 	WHERE g.genre_id = t.genre_id));
+
+
+INSERT INTO "rejet_ratings" (user_id, movie_id, rating, review)
+Select t.user_id, 
+	t.movie_id,
+	t.rating,
+	t.review
+FROM "tampon_ratings" t
+WHERE NOT (t.user_id is NOT NULL
+	AND EXISTS (
+		Select 1
+		FROM "Users" u
+		WHERE u.user_id = t.user_id)
+	AND t.movie_id is NOT NULL
+	AND EXISTS (
+		Select 1
+		FROM "Movies" m
+		WHERE m.movie_id = t.movie_id)
+	AND CAST(t.rating as TEXT) ~ '^[0-5]{1}$');
+
+
+INSERT INTO "rejet_favorite_genres" (user_id, genre_id)
+Select t.user_id, 
+	t.genre_id
+FROM "tampon_favorite_genres" t
+WHERE NOT (t.user_id is NOT NULL
+	AND EXISTS (
+		Select 1
+		FROM "Users" u
+		WHERE u.user_id = t.user_id)
+	AND t.genre_id is NOT NULL
+	AND EXISTS (
+		Select 1
+		FROM "Genre" g
+		WHERE g.genre_id = t.genre_id));
+
+
+INSERT INTO "Watch_history" (history_id, user_id, movie_id, watched_on)
+SELECT 
+    t.history_id,
+    t.user_id,
+    t.movie_id,
+    CASE
+        WHEN t.watched_on IS NULL THEN NULL
+        WHEN t.watched_on BETWEEN DATE '1800-01-01' AND CURRENT_DATE
+        THEN t.watched_on
+        ELSE NULL
+    END AS watched_on
+FROM "tampon_watch_history" t
+WHERE NOT (t.history_id IS NOT NULL
+  AND t.user_id IS NOT NULL
+  AND EXISTS (
+        SELECT 1
+        FROM "Users" u
+        WHERE u.user_id = t.user_id)
+  AND t.movie_id IS NOT NULL
+  AND EXISTS (
+        SELECT 1
+        FROM "Movies" m
+        WHERE m.movie_id = t.movie_id));
