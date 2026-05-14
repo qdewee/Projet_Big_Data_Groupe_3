@@ -110,7 +110,7 @@ Select worker_id, trim(nom)  --On retire les espaces inutiles sur les côté
 FROM "tampon_workers"
 WHERE nom is NOT NULL  --On préfère reconnaitre la personne
 	AND worker_id is NOT NULL --L'identifiant ne peut être null
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$';  --Regex permettant de vérifier que
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?([ ]V)?$';  --Regex permettant de vérifier que
     -- Le nom (nettoyé des espaces exérieurs) est composé de lettres
     -- Le prénom fait entre 2 et 100 caractères
     -- Le séparateur est soit un espace (on passe au nom), soit une apostrophe (noms américains) 
@@ -126,7 +126,7 @@ Select worker_id, trim(nom)
 FROM "tampon_workers"
 WHERE nom is NOT NULL
 	AND worker_id is NOT NULL
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$';
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?([ ]V)?$';
 
 
 
@@ -137,7 +137,7 @@ Select user_id, trim(nom)
 FROM "tampon_users"
 WHERE nom is NOT NULL
 	AND user_id is NOT NULL
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$';
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?([ ]V)?$';
 
 
 -- Pour les films, nous avons décidé que seuls l'id et le titre devaient être non null car nous somme parti du principe
@@ -147,7 +147,6 @@ WHERE nom is NOT NULL
 -- nous avons décidé de ne pas mettre de condition dessus.
 -- Le titre doit être composé de mots et ou de chiffres
 -- L'année doit être écrite en 4 chiffres pour être valable ou ne pas être là
--- ATTENTION
 INSERT INTO "Movies" (movie_id, titre, année, director_id, metadata)
 SELECT 
     t.movie_id,
@@ -253,21 +252,21 @@ WHERE t.movie_id IS NOT NULL
 -- et qu'il nous est donc impossible de déterminer qu'elle note est la plus récente pour la garder
 -- (ce qui aurait été mieux selon nous). C'est pourquoi les doublons ne sont pas repris dans la table des rejets.
 INSERT INTO "Ratings" (user_id, movie_id, rating, review)
-Select t.user_id, 
-	t.movie_id,
-	t.rating,
+Select t.user_id::UUID,
+	t.movie_id::UUID,
+	t.rating::INTEGER,
 	t.review
 FROM "tampon_ratings" t
 WHERE t.user_id is NOT NULL
 	AND EXISTS (
 		Select 1
 		FROM "Users" u
-		WHERE u.user_id = t.user_id)
+		WHERE u.user_id = t.user_id::UUID)
 	AND t.movie_id is NOT NULL
 	AND EXISTS (
 		Select 1
 		FROM "Movies" m
-		WHERE m.movie_id = t.movie_id)
+		WHERE m.movie_id = t.movie_id::UUID)
 	AND CAST(t.rating as TEXT) ~ '^[0-5]{1}$';
 
 
@@ -319,18 +318,18 @@ WHERE t.history_id IS NOT NULL
 INSERT INTO "rejet_workers" (worker_id, nom)
 Select worker_id, trim(nom)
 FROM "tampon_workers"
-WHERE NOT(nom is NULL
-	AND worker_id is NULL
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$');
+WHERE NOT (nom is NOT NULL
+	AND worker_id is NOT NULL
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?([ ]V)?$');
 
 
 
-INSERT INTO "rejet_users" (user_id, nom)
+INSERT INTO "Users" (user_id, nom)
 Select user_id, trim(nom)
 FROM "tampon_users"
-WHERE NOT(nom is NULL
-	AND user_id is NULL
-	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?$');
+WHERE NOT (nom is NOT NULL
+	AND user_id is NOT NULL
+	AND trim(nom) ~ '^[[:alpha:]]{2,100}[.]?([ ''\-][[:alpha:]]{2,100})*([ ]Jr\.)?([ ]Sr\.)?([ ]V)?$');
 
 
 INSERT INTO "rejet_movies" (movie_id, titre, année, director_id, metadata)
@@ -430,22 +429,35 @@ WHERE NOT(t.movie_id IS NOT NULL
 
 
 INSERT INTO "rejet_ratings" (user_id, movie_id, rating, review)
-Select t.user_id, 
-	t.movie_id,
-	t.rating,
-	t.review
+SELECT 
+    CASE 
+        WHEN t.user_id ~ '^[0-9a-fA-F-]{36}$'
+        THEN t.user_id::UUID
+        ELSE NULL
+    END,
+    CASE 
+        WHEN t.movie_id ~ '^[0-9a-fA-F-]{36}$'
+        THEN t.movie_id::UUID
+        ELSE NULL
+    END,
+    CASE
+        WHEN t.rating ~ '^[0-5]{1}$'
+        THEN t.rating::INTEGER
+        ELSE NULL
+    END,
+    t.review
 FROM "tampon_ratings" t
-WHERE NOT (t.user_id is NOT NULL
-	AND EXISTS (
-		Select 1
-		FROM "Users" u
-		WHERE u.user_id = t.user_id)
-	AND t.movie_id is NOT NULL
-	AND EXISTS (
-		Select 1
-		FROM "Movies" m
-		WHERE m.movie_id = t.movie_id)
-	AND CAST(t.rating as TEXT) ~ '^[0-5]{1}$');
+WHERE NOT (t.user_id IS NOT NULL
+    AND EXISTS (
+        SELECT 1
+        FROM "Users" u
+        WHERE u.user_id = t.user_id::UUID)
+    AND t.movie_id IS NOT NULL
+
+    AND EXISTS (SELECT 1
+        FROM "Movies" m
+        WHERE m.movie_id = t.movie_id::UUID)
+    AND t.rating ~ '^[0-5]{1}$');
 
 
 INSERT INTO "rejet_favorite_genres" (user_id, genre_id)
@@ -464,7 +476,7 @@ WHERE NOT (t.user_id is NOT NULL
 		WHERE g.genre_id = t.genre_id));
 
 
-INSERT INTO "Watch_history" (history_id, user_id, movie_id, watched_on)
+INSERT INTO "rejet_watch_history" (history_id, user_id, movie_id, watched_on)
 SELECT 
     t.history_id,
     t.user_id,
@@ -487,3 +499,95 @@ WHERE NOT (t.history_id IS NOT NULL
         SELECT 1
         FROM "Movies" m
         WHERE m.movie_id = t.movie_id));
+
+
+
+--##########################################################################################################
+-- Requêtes de l'énoncé
+--##########################################################################################################
+
+-- Trouver les films avec une note moyenne supérieure à 4.5
+-- Temps d'exécution = 4.003 secondes
+SELECT m.movie_id, m.titre
+FROM "Movies" m
+JOIN "Ratings" r
+	ON m.movie_id = r.movie_id
+GROUP BY m.movie_id
+HAVING AVG(r.rating) > 4.5;
+
+
+
+
+-- Récupérer toutes les informations d'un film avec ses acteurs, son directeur et
+-- ses récompenses.
+-- Temps d'exécution = 19.138 secondes
+SELECT m.titre AS Titre, 
+	m.année AS Année, 
+	m.metadata AS Informations_supplémentaires, 
+	w1.nom AS Directeur, 
+	ma2.Acteurs, 
+	mw2.Récompenses
+FROM "Movies" m
+LEFT JOIN (
+	SELECT worker_id, nom
+	FROM "Workers") w1
+	ON w1.worker_id = m.director_id
+
+LEFT JOIN (
+    SELECT ma1.movie_id,
+        STRING_AGG(DISTINCT w.nom, ', ') AS Acteurs
+    FROM "Movie_actors" ma1
+    JOIN "Workers" w
+        ON w.worker_id = ma1.actor_id
+    GROUP BY ma1.movie_id) ma2
+	ON ma2.movie_id = m.movie_id
+
+LEFT JOIN (
+	SELECT mw1.movie_id,
+		STRING_AGG(DISTINCT a.nom || '(' || a.catégorie || ')', ', ') AS Récompenses
+	FROM "Movie_awards" mw1
+	LEFT JOIN (
+		Select nom, catégorie, award_id
+		FROM "Awards") a
+		ON a.award_id = mw1.award_id
+	GROUP BY mw1.movie_id) mw2
+	ON mw2.movie_id = m.movie_id;
+
+
+
+
+-- Trouver des films non regardés par un utilisateur ayant des acteurs qui ont
+-- joué dans des films qu'il a déjà regardés
+-- Temps d'exécution = 4 minutes 8.442 secondes
+SELECT u.user_id, 
+	STRING_AGG(DISTINCT m.titre || '[' || m.movie_id || ']', ', ')
+FROM "Users" u
+JOIN (
+	SELECT user_id,
+		movie_id
+	FROM "Watch_history") wh
+	ON wh.user_id = u.user_id
+
+JOIN (
+	SELECT actor_id, movie_id
+	FROM "Movie_actors") ma
+	ON ma.movie_id = wh.movie_id
+
+JOIN (
+	SELECT movie_id, actor_id
+	FROM "Movie_actors") ma2
+	ON (ma2.actor_id = ma.actor_id AND ma2.movie_id <> wh.movie_id)
+	
+JOIN (
+	SELECT titre, movie_id
+	FROM "Movies") m
+	ON m.movie_id = ma2.movie_id
+
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM "Watch_history" wh2
+    WHERE wh2.user_id = u.user_id
+      AND wh2.movie_id = m.movie_id
+)
+	
+GROUP BY u.user_id;
