@@ -1,5 +1,7 @@
 //Code complet pour l'exécution de la requête 2 : "Trouver les films avec une note moyenne supérieure à 4.5"
-//création collection films_bien_notes
+
+
+//Première étape : création collection films_bien_notes
 //Temps d'exécution : 729235 ms
 
 use movies_project
