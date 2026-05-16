@@ -205,7 +205,7 @@ db.movies_clean.aggregate([
 
 
 
-// Requête 1 : Récupérer toutes les informations d'un film avec ses acteurs, son directeur et ses récompenses
+// Requête 1 : Récupérer toutes les informations d'un film : titre, nom directeur, nom acteur, rôle, award, catégorie award
 // Ce code renvoie TOUTES les fiches de films ayant le titre indiqué
 // Test ci-dessous avec "Card" comme titre, renvoie 86 films 
 //Temps d'exécution : 376 ms
