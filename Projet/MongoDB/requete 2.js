@@ -66,5 +66,72 @@ db.films_bien_notes.createIndex({ title: 1 });
 
 //Code pour la lancer la requête qui retourne tous les films avec une note > 4.5 avec : titre, année, ID et directeur
 
+use movies_project
+
+db.films_bien_notes.createIndex({ movie_id: 1 });
+db.movies_clean.createIndex({ id: 1 });
+db.workers_clean.createIndex({ id: 1 });
+
+const start = Date.now();
+
+const result = db.films_bien_notes.aggregate([
+
+  {
+    $lookup: {
+      from: "movies_clean",
+      localField: "movie_id",
+      foreignField: "id",
+      as: "movie"
+    }
+  },
+
+  {
+    $unwind: "$movie"
+  },
+
+  {
+    $lookup: {
+      from: "workers_clean",
+      localField: "movie.director_id",
+      foreignField: "id",
+      as: "director"
+    }
+  },
+
+  {
+    $unwind: {
+      path: "$director",
+      preserveNullAndEmptyArrays: true
+    }
+  },
+
+  {
+    $project: {
+      _id: 0,
+      titre: "$movie.title",
+      annee: "$movie.year",
+      directeur: "$director.name",
+      note_moyenne: 1,
+      nombre_notes: 1
+    }
+  },
+
+  {
+    $sort: {
+      note_moyenne: -1,
+      nombre_notes: -1
+    }
+  }
+
+]).toArray();
+
+const end = Date.now();
+
+print("Nombre de films trouvés : " + result.length);
+print("Temps d'exécution : " + (end - start) + " ms");
+
+printjson(result);
+
+
 
 
