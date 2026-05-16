@@ -1,4 +1,7 @@
+docker exec -it mongodb mongosh -u root -p example --authenticationDatabase admin
+
 use movies_project
+
 
 // =======================
 // 1. WORKERS → workers_clean
