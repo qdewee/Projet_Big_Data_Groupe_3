@@ -64,7 +64,7 @@ db.films_bien_notes.createIndex({ title: 1 });
 
 
 
-//Code pour la lancer la requête qui retourne tous les films avec une note > 4.5 avec : titre, année, ID et directeur
+//Code pour la lancer la requête qui retourne tous les films avec une note > 4.5 et leurs informations correspondantes : titre, année, ID et directeur
 
 use movies_project
 
