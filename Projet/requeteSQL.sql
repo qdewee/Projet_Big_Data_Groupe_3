@@ -591,3 +591,20 @@ WHERE NOT EXISTS (
 )
 	
 GROUP BY u.user_id;
+
+
+
+--##########################################################################################################
+-- Requête supplémentaire pour SQL
+--##########################################################################################################
+
+-- Afficher les utilisateurs qui ont regardés le plus de films
+-- Temps d'exécution = 1.451 secondes
+SELECT u.user_id,
+       u.nom,
+       COUNT(wh.movie_id) AS films_regardés
+FROM "Users" u
+JOIN "Watch_history" wh
+    ON wh.user_id = u.user_id
+GROUP BY u.user_id, u.nom
+ORDER BY films_regardés DESC;
